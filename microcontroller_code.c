@@ -28,6 +28,7 @@ const int potPin = 34; // Potentiometer connected to
 const int redLedPin = 27;  // The GPIO pin for the red LED
 const int yellowLedPin = 26;  // The GPIO pin for the yellow LED
 const int greenLedPin = 33;  // The GPIO pin for the green LED
+const int blueLedPin = 32;  // The GPIO pin for the green LED
 
 // PWM settings
 const int freq = 5000; // PWM frequency
@@ -55,6 +56,7 @@ void setup() {
   pinMode(redLedPin, OUTPUT);
   pinMode(yellowLedPin, OUTPUT);
   pinMode(greenLedPin, OUTPUT);
+  pinMode(blueLedPin, OUTPUT);
 }
 
 void loop() {
@@ -94,18 +96,26 @@ void updateValues() {
 
   // Wait a few seconds between measurements.
   if (counter % (1000 / delayTime) == 0) {
-    if (ledCounter % 3 == 0) {
+    if (ledCounter % 4 == 0) {
       digitalWrite(redLedPin, HIGH);
       digitalWrite(yellowLedPin, LOW);
       digitalWrite(greenLedPin, LOW);
-    } else if (ledCounter % 3 == 1) {
+      digitalWrite(blueLedPin, LOW);
+    } else if (ledCounter % 4 == 1) {
       digitalWrite(redLedPin, LOW);
       digitalWrite(yellowLedPin, HIGH);
       digitalWrite(greenLedPin, LOW);
-    } else {
+      digitalWrite(blueLedPin, LOW);
+    } else if (ledCounter % 4 == 2) {
       digitalWrite(redLedPin, LOW);
       digitalWrite(yellowLedPin, LOW);
       digitalWrite(greenLedPin, HIGH);
+      digitalWrite(blueLedPin, LOW);
+    } else {
+      digitalWrite(redLedPin, LOW);
+      digitalWrite(yellowLedPin, LOW);
+      digitalWrite(greenLedPin, LOW);
+      digitalWrite(blueLedPin, HIGH);
     }
     ledCounter++;
   }

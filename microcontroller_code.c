@@ -15,6 +15,12 @@ float temperature;
 int potValue;
 uint32_t voltage_mV;
 
+int alerts[2] = {0, 0};
+int ventilation = false;
+int angle = 0;
+
+int target = 0;
+
 // Define the servo and the pin it is connected to
 Servo myServo;
 const int servoPin = 25;
@@ -60,64 +66,52 @@ void setup() {
 }
 
 void loop() {
-  // Rotate the servo from 0 to 180 degrees
-  for (int angle = 0; angle <= 180; angle++) {
-    int pulseWidth = map(angle, 0, 180, minPulseWidth, maxPulseWidth);
-    myServo.writeMicroseconds(pulseWidth);
-    updateValues();
-    printValues();
-    delay(delayTime);
-    counter++;
+  int pulseWidth = map(angle, 0, 180, minPulseWidth, maxPulseWidth);
+  myServo.writeMicroseconds(pulseWidth);
+  Serial.printf("angle = %d, ", angle);
+  if (angle < target) {
+    angle++; 
+  }
+  if (angle > target) {
+    angle--; 
   }
 
-  // Rotate the servo from 180 to 0 degrees
-  for (int angle = 180; angle >= 0; angle--) {
-    int pulseWidth = map(angle, 0, 180, minPulseWidth, maxPulseWidth);
-    myServo.writeMicroseconds(pulseWidth);
-    updateValues();
-    printValues();
-    delay(delayTime);
-    counter++;
-  }
+  updateValues();
+  printValues();
+  delay(delayTime);
+  counter++;
 }
 
 void updateValues() {
-    if (counter % (100 / delayTime) == 0) {
+  // Get potentiometer value
+  if (counter % (100 / delayTime) == 0) {
     potValue = analogRead(potPin); // read the value of the potentiometer
     voltage_mV = analogReadMilliVolts(potPin); // Read the voltage in millivolts
     // ledcWrite(ledPin, potValue);
+
+    // Update alerts based on potentiometer value
+    if (potValue < 2500) {
+      alerts[0] = 0;
+    } else if (potValue <= 3500) {
+      alerts[0] = 1;
+    } else {
+      alerts[0] = 2;
+    }
   }
 
-
+  // Get moisture sensor value
   if (counter % (300 / delayTime) == 0) {
     // Read the analog value
     analogValue = analogRead(35);
-  }
 
-  // Wait a few seconds between measurements.
-  if (counter % (1000 / delayTime) == 0) {
-    if (ledCounter % 4 == 0) {
-      digitalWrite(redLedPin, HIGH);
-      digitalWrite(yellowLedPin, LOW);
-      digitalWrite(greenLedPin, LOW);
-      digitalWrite(blueLedPin, LOW);
-    } else if (ledCounter % 4 == 1) {
-      digitalWrite(redLedPin, LOW);
-      digitalWrite(yellowLedPin, HIGH);
-      digitalWrite(greenLedPin, LOW);
-      digitalWrite(blueLedPin, LOW);
-    } else if (ledCounter % 4 == 2) {
-      digitalWrite(redLedPin, LOW);
-      digitalWrite(yellowLedPin, LOW);
-      digitalWrite(greenLedPin, HIGH);
-      digitalWrite(blueLedPin, LOW);
+    // Update alerts based on moisture sensor value
+    if (analogValue > 3000) {
+      alerts[1] = 0;
+    } else if (analogValue >= 1500) {
+      alerts[1] = 1;
     } else {
-      digitalWrite(redLedPin, LOW);
-      digitalWrite(yellowLedPin, LOW);
-      digitalWrite(greenLedPin, LOW);
-      digitalWrite(blueLedPin, HIGH);
+      alerts[1] = 2;
     }
-    ledCounter++;
   }
 
   // Wait a few seconds between measurements.
@@ -133,6 +127,42 @@ void updateValues() {
       Serial.println("Failed to read from DHT sensor!");
       return;
     }
+
+    if (temperature > 35 || humidity > 80) {
+      ventilation = true;
+    } else {
+      ventilation = false;
+    }
+
+    if (ventilation) {
+      digitalWrite(blueLedPin, HIGH);
+    } else {
+      digitalWrite(blueLedPin, LOW);
+    }
+  }
+
+  if (alerts[0] == 0 || alerts[1] == 0) {
+    digitalWrite(greenLedPin, HIGH);
+  } else {
+    digitalWrite(greenLedPin, LOW);
+  }
+
+  if (alerts[0] == 1 || alerts[1] == 1) {
+    digitalWrite(yellowLedPin, HIGH);
+  } else {
+    digitalWrite(yellowLedPin, LOW);
+  }
+
+  if (alerts[0] == 2 || alerts[1] == 2) {
+    digitalWrite(redLedPin, HIGH);
+    target = 90;
+  } else {
+    digitalWrite(redLedPin, LOW);
+    if (ventilation) {
+      target = 45;
+    } else {
+      target = 0;
+    }
   }
 }
 
@@ -145,7 +175,7 @@ void printValues() {
     Serial.print(voltage_mV / 1000.0); // Convert millivolts to volts
     Serial.print(" V, ");
 
-    // Print out the values
+    // Print out the values for moisture sensor
     Serial.printf("Analog value = %d, ", analogValue);
 
     // Print the humidity and temperature

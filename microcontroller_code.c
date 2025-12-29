@@ -9,17 +9,20 @@ DHT dht(DHTPIN, DHTTYPE);
 int counter;
 int ledCounter;
 
-int analogValue;
+int moistureValue;
 float humidity;
 float temperature;
 int potValue;
 uint32_t voltage_mV;
 
-int alerts[2] = {0, 0};
+int alerts[3] = {0, 0, 0};
 int ventilation = false;
 int angle = 0;
 
 int target = 0;
+
+String warningString;
+String alertString;
 
 // Define the servo and the pin it is connected to
 Servo myServo;
@@ -33,8 +36,6 @@ const int potPin = 34; // Potentiometer connected to
 
 const int redLedPin = 27;  // The GPIO pin for the red LED
 const int yellowLedPin = 26;  // The GPIO pin for the yellow LED
-const int greenLedPin = 33;  // The GPIO pin for the green LED
-const int blueLedPin = 32;  // The GPIO pin for the green LED
 
 // PWM settings
 const int freq = 5000; // PWM frequency
@@ -42,10 +43,18 @@ const int resolution = 12; // PWM resolution (bits)
 
 const int delayTime = 20; // 20 ms delay
 
-void setup() {
-  // Configure PWM
-  // ledcAttach(ledPin, freq, resolution);
+// < 2500 is safe, < 3500 is warning, otherwise alert
+const int pot_safe_warning_threshold = 2500;
+const int pot_warning_alert_threshold = 3500;
 
+// > 3000 is safe, > 1500 is warning, otherwise alert
+const int moisture_sensor_safe_warning_threshold = 2500; // 3000
+const int moisture_sensor_warning_alert_threshold = 1500;
+
+const int max_temp = 35; 
+const int max_humidity = 45; // Make max_humidity 80 after testing
+
+void setup() {
   // Attach the servo to the specified pin and set its pulse width range
   myServo.attach(servoPin, minPulseWidth, maxPulseWidth);
 
@@ -61,14 +70,11 @@ void setup() {
 
   pinMode(redLedPin, OUTPUT);
   pinMode(yellowLedPin, OUTPUT);
-  pinMode(greenLedPin, OUTPUT);
-  pinMode(blueLedPin, OUTPUT);
 }
 
 void loop() {
   int pulseWidth = map(angle, 0, 180, minPulseWidth, maxPulseWidth);
   myServo.writeMicroseconds(pulseWidth);
-  Serial.printf("angle = %d, ", angle);
   if (angle < target) {
     angle++; 
   }
@@ -90,9 +96,9 @@ void updateValues() {
     // ledcWrite(ledPin, potValue);
 
     // Update alerts based on potentiometer value
-    if (potValue < 2500) {
+    if (potValue < pot_safe_warning_threshold) {
       alerts[0] = 0;
-    } else if (potValue <= 3500) {
+    } else if (potValue <= pot_warning_alert_threshold) {
       alerts[0] = 1;
     } else {
       alerts[0] = 2;
@@ -102,12 +108,12 @@ void updateValues() {
   // Get moisture sensor value
   if (counter % (300 / delayTime) == 0) {
     // Read the analog value
-    analogValue = analogRead(35);
+    moistureValue = analogRead(35);
 
     // Update alerts based on moisture sensor value
-    if (analogValue > 3000) {
+    if (moistureValue > moisture_sensor_safe_warning_threshold) {
       alerts[1] = 0;
-    } else if (analogValue >= 1500) {
+    } else if (moistureValue >= moisture_sensor_warning_alert_threshold) {
       alerts[1] = 1;
     } else {
       alerts[1] = 2;
@@ -116,7 +122,6 @@ void updateValues() {
 
   // Wait a few seconds between measurements.
   if (counter % (2000 / delayTime) == 0) {
-    // Reading temperature or humidity takes about 250 milliseconds!
     // Sensor readings may also be up to 2 seconds 'old' (it's a very slow sensor)
     humidity = dht.readHumidity();
     // Read temperature as Celsius (the default)
@@ -128,35 +133,47 @@ void updateValues() {
       return;
     }
 
-    if (temperature > 35 || humidity > 80) {
-      ventilation = true;
+    if (temperature > max_temp || humidity > max_humidity) {
+      alerts[2] = 1;
     } else {
-      ventilation = false;
-    }
-
-    if (ventilation) {
-      digitalWrite(blueLedPin, HIGH);
-    } else {
-      digitalWrite(blueLedPin, LOW);
+      alerts[2] = 0;
     }
   }
 
-  if (alerts[0] == 0 || alerts[1] == 0) {
-    digitalWrite(greenLedPin, HIGH);
-  } else {
-    digitalWrite(greenLedPin, LOW);
-  }
-
-  if (alerts[0] == 1 || alerts[1] == 1) {
+  if (alerts[0] == 1 || alerts[1] == 1 || alerts[2] == 1) {
+    warningString = "Warnings: ";
+    if (alerts[0] == 1) {
+      warningString += String("Potentiometer value is greater than ") + String(pot_safe_warning_threshold) + " (" + String(potValue) + ").\n";  
+    }
+    if (alerts[1] == 1) {
+      warningString += String("Moisture sensor value is less than ") + String(moisture_sensor_safe_warning_threshold) + " (" + String(moistureValue) + ")" + ".\n";
+    }
+    if (alerts[2] == 1) {
+      if (temperature > max_temp) {
+        warningString += String("Temperature is above ") + String(max_temp) + " (" + String(temperature) + ")" + ".\n";
+      } 
+      if (humidity > max_humidity) {
+        warningString += String("Humidity is above ") + String(max_humidity) + " (" + String(humidity) + ")" + ".\n";
+      }
+    }
     digitalWrite(yellowLedPin, HIGH);
   } else {
+    warningString = "Warnings: none.\n";
     digitalWrite(yellowLedPin, LOW);
   }
 
   if (alerts[0] == 2 || alerts[1] == 2) {
+    alertString = "Alerts: ";
+    if (alerts[0] == 2) {
+      alertString += String("Potentiometer value is greater than ") + String(pot_warning_alert_threshold) + " (" + String(potValue) + ")" + ".\n";
+    }
+    if (alerts[1] == 2) {
+      alertString += String("Moisture sensor value is less than ") + String(moisture_sensor_warning_alert_threshold) + " (" + String(moistureValue) + ")" + ".\n";
+    }
     digitalWrite(redLedPin, HIGH);
     target = 90;
   } else {
+    alertString = "Alerts: none.\n";
     digitalWrite(redLedPin, LOW);
     if (ventilation) {
       target = 45;
@@ -164,10 +181,14 @@ void updateValues() {
       target = 0;
     }
   }
+
 }
 
 void printValues() {
   if (counter % (100 / delayTime) == 0) {
+    Serial.print(warningString);
+    Serial.println(alertString);
+    Serial.printf("angle = %d, ", angle);
     Serial.print("Potentiometer Value: ");
     Serial.print(potValue);
 
@@ -176,7 +197,7 @@ void printValues() {
     Serial.print(" V, ");
 
     // Print out the values for moisture sensor
-    Serial.printf("Analog value = %d, ", analogValue);
+    Serial.printf("Moisture value = %d, ", moistureValue);
 
     // Print the humidity and temperature
     Serial.print("Humidity: "); 
@@ -185,5 +206,8 @@ void printValues() {
     Serial.print("Temperature: "); 
     Serial.print(temperature);
     Serial.println(" *C");
+
+     Serial.println("");
+
   }
 }

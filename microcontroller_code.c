@@ -21,11 +21,17 @@ int angle = 0;
 
 int target = 0;
 
+int alertDelay = 0;
+int statisticDelay = 0;
+
 String warningString;
 String alertString;
 
 // Define the servo and the pin it is connected to
 Servo myServo;
+
+String metricString;
+
 const int servoPin = 25;
 
 // Define the minimum and maximum pulse widths for the servo
@@ -63,6 +69,12 @@ void setup() {
 
   // Initialize serial communication at 115200 bits per second:
   Serial.begin(115200);
+  delay(3000);
+
+  // Clear previous lines
+  for (int i = 0; i < 100; i++) {
+    Serial.println(); 
+  }
   Serial.println("DHT11 test!");
   dht.begin();
   counter = 0;
@@ -70,6 +82,97 @@ void setup() {
 
   pinMode(redLedPin, OUTPUT);
   pinMode(yellowLedPin, OUTPUT);
+
+  while (alertDelay < 100) {
+    Serial.println("Enter an integer representing how many milliseconds you would like between alert displays (must be >= 100): ");
+    // int input = Serial.read();
+
+    while (Serial.available() == 0) {
+      // Wait for user input
+    }
+
+    alertDelay = Serial.parseInt();
+
+    // Clear buffer
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+
+    if (alertDelay < 100) {
+      Serial.print("Invalid input: ");
+      Serial.print(alertDelay);
+      Serial.println(". The value must be at least 100.");
+    }
+
+  }
+
+  Serial.print("Alert delay set to: ");
+  Serial.println(alertDelay);
+
+  // Clear buffer
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+
+  Serial.print("Would you also like to display at least 1 other metric of the system\n(ex: arm angle, potentiometer value, voltage, moisture value, humidity, temperature)?: ");
+  
+  while (Serial.available() == 0) {
+    // Wait for user input
+  }
+
+  String yesOrNo = Serial.readStringUntil('\n');
+  Serial.print("Response: ");
+  Serial.println(yesOrNo);
+
+  if ((yesOrNo.indexOf("y") != -1) || (yesOrNo.indexOf("Y") != -1)) {
+    // Clear buffer
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+
+    Serial.print("\nEnter a number containing all the digits corresponding to what metrics you want to see: \n1 = arm angle \n2 = potentiometer value \n3 = voltage \n4 = moisture value \n5 = humidity \n6 = temperature \n(ex: enter '123456' to see all metrics)");
+
+    while (Serial.available() == 0) {
+      // Wait for user input
+    }
+
+    metricString = Serial.readStringUntil('\n');
+
+    Serial.print(metricString);
+
+    // Clear buffer
+    while (Serial.available() > 0) {
+      Serial.read();
+    }
+
+    while (statisticDelay < 100) {
+      Serial.println("\nEnter an integer representing how many milliseconds you would like between statistic displays (must be >= 100): ");
+      // int input = Serial.read();
+
+      while (Serial.available() == 0) {
+        // Wait for user input
+      }
+
+      statisticDelay = Serial.parseInt();
+
+      // Clear buffer
+      while (Serial.available() > 0) {
+        Serial.read();
+      }
+
+      if (statisticDelay < 100) {
+        Serial.print("Invalid input: ");
+        Serial.print(statisticDelay);
+        Serial.println(". The value must be at least 100.");
+      }
+
+    }
+
+    Serial.print("Statistic delay set to: ");
+    Serial.println(statisticDelay);
+  }
+  
+  delay(1000);
 }
 
 void loop() {
@@ -185,29 +288,54 @@ void updateValues() {
 }
 
 void printValues() {
-  if (counter % (100 / delayTime) == 0) {
+  if (counter % (alertDelay / delayTime) == 0) {
     Serial.print(warningString);
     Serial.println(alertString);
-    Serial.printf("angle = %d, ", angle);
-    Serial.print("Potentiometer Value: ");
-    Serial.print(potValue);
 
-    Serial.print(", Voltage: ");
-    Serial.print(voltage_mV / 1000.0); // Convert millivolts to volts
-    Serial.print(" V, ");
+    // Serial.println("");
 
-    // Print out the values for moisture sensor
-    Serial.printf("Moisture value = %d, ", moistureValue);
+  }
 
-    // Print the humidity and temperature
-    Serial.print("Humidity: "); 
-    Serial.print(humidity);
-    Serial.print(", ");
-    Serial.print("Temperature: "); 
-    Serial.print(temperature);
-    Serial.println(" *C");
+  if (counter % (statisticDelay / delayTime) == 0) {
+    // 1 = arm angle 
+    // 2 = potentiometer value 
+    // 3 = voltage 
+    // 4 = moisture value 
+    // 5 = humidity 
+    // 6 = temperature \n(ex: enter '123456' to see all metrics)");
 
-     Serial.println("");
+    if (metricString.indexOf("1") != -1) {
+      Serial.printf("angle = %d, ", angle);
+    }
+    
+    if (metricString.indexOf("2") != -1) {
+      Serial.printf("Potentiometer Value: %d, ", potValue);
+      // Serial.print(potValue);
+    }
+
+    if (metricString.indexOf("3") != -1) {
+      Serial.print(", Voltage: ");
+      Serial.print(voltage_mV / 1000.0); // Convert millivolts to volts
+      Serial.print(" V, ");
+    }
+
+    if (metricString.indexOf("4") != -1) {
+      // Print out the values for moisture sensor
+      Serial.printf("Moisture value = %d, ", moistureValue);
+    }
+
+    if (metricString.indexOf("6") != -1) {
+      // Print the humidity and temperature
+      Serial.print("Humidity: "); 
+      Serial.print(humidity);
+      Serial.print(", ");
+    }
+
+    if (metricString.indexOf("7") != -1) {
+      Serial.print("Temperature: "); 
+      Serial.print(temperature);
+      Serial.println(" *C");
+    }
 
   }
 }

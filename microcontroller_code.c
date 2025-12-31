@@ -24,6 +24,8 @@ int target = 0;
 int alertDelay = 0;
 int statisticDelay = 0;
 
+bool showingStatistics = false;
+
 String warningString;
 String alertString;
 
@@ -124,11 +126,12 @@ void setup() {
   Serial.print("Response: ");
   Serial.println(yesOrNo);
 
+  // Clear buffer
+  while (Serial.available() > 0) {
+    Serial.read();
+  }
+
   if ((yesOrNo.indexOf("y") != -1) || (yesOrNo.indexOf("Y") != -1)) {
-    // Clear buffer
-    while (Serial.available() > 0) {
-      Serial.read();
-    }
 
     Serial.print("\nEnter a number containing all the digits corresponding to what metrics you want to see: \n1 = arm angle \n2 = potentiometer value \n3 = voltage \n4 = moisture value \n5 = humidity \n6 = temperature \n(ex: enter '123456' to see all metrics)");
 
@@ -170,6 +173,7 @@ void setup() {
 
     Serial.print("Statistic delay set to: ");
     Serial.println(statisticDelay);
+    showingStatistics = true;
   }
   
   delay(1000);
@@ -244,7 +248,7 @@ void updateValues() {
   }
 
   if (alerts[0] == 1 || alerts[1] == 1 || alerts[2] == 1) {
-    warningString = "Warnings: ";
+    warningString = "\nWarnings: ";
     if (alerts[0] == 1) {
       warningString += String("Potentiometer value is greater than ") + String(pot_safe_warning_threshold) + " (" + String(potValue) + ").\n";  
     }
@@ -261,7 +265,7 @@ void updateValues() {
     }
     digitalWrite(yellowLedPin, HIGH);
   } else {
-    warningString = "Warnings: none.\n";
+    warningString = "\nWarnings: none.\n";
     digitalWrite(yellowLedPin, LOW);
   }
 
@@ -296,7 +300,7 @@ void printValues() {
 
   }
 
-  if (counter % (statisticDelay / delayTime) == 0) {
+  if (showingStatistics && counter % (statisticDelay / delayTime) == 0) {
     // 1 = arm angle 
     // 2 = potentiometer value 
     // 3 = voltage 
@@ -324,14 +328,14 @@ void printValues() {
       Serial.printf("Moisture value = %d, ", moistureValue);
     }
 
-    if (metricString.indexOf("6") != -1) {
+    if (metricString.indexOf("5") != -1) {
       // Print the humidity and temperature
       Serial.print("Humidity: "); 
       Serial.print(humidity);
       Serial.print(", ");
     }
 
-    if (metricString.indexOf("7") != -1) {
+    if (metricString.indexOf("6") != -1) {
       Serial.print("Temperature: "); 
       Serial.print(temperature);
       Serial.println(" *C");
